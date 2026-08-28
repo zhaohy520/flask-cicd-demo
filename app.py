@@ -17,7 +17,7 @@ VERSION = os.environ.get("APP_VERSION", "dev")
 def hello():
     hostname = socket.gethostname()
     return (
-        f"<h1>Hello from Flask! 🚀</h1>"
+        f"<h1>Hello CI/CD! 🚀</h1>"
         f"<p>version: <b>{VERSION}</b></p>"
         f"<p>hostname: {hostname}</p>"
     )
