@@ -14,7 +14,8 @@ on:
 jobs:
   build-and-deploy:              # 工作名（自己起）
     runs-on: self-hosted         # 在哪跑：我们的 Runner（node1）
-                                 # 类比 agent { label 'self-hosted' }
+    env:
+      KUBECONFIG: /etc/kubernetes/admin.conf                       # 类比 agent { label 'self-hosted' }
 
     steps:                       # 步骤列表（类比 stages/step）
 
