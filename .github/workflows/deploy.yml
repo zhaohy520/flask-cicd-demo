@@ -1,0 +1,55 @@
+# ============================================
+# 流水线：.github/workflows/deploy.yml
+# 类比：这就是 GitHub Actions 版的"声明式 Jenkinsfile"
+# ============================================
+
+name: deploy          # 流水线名字（GitHub 界面显示）
+
+# ---- 触发条件（类比 Jenkinsfile 的 triggers）----
+on:
+  push:                          # push 代码时
+    branches: [ main ]           # 只看 main 分支
+
+# ---- 工作定义（类比 Jenkinsfile 的 stages）----
+jobs:
+  build-and-deploy:              # 工作名（自己起）
+    runs-on: self-hosted         # 在哪跑：我们的 Runner（node1）
+                                 # 类比 agent { label 'self-hosted' }
+
+    steps:                       # 步骤列表（类比 stages/step）
+
+      # 第 1 步：拉代码（类比 git clone）
+      - name: 拉取代码
+        uses: actions/checkout@v4    # GitHub 官方动作：把代码下到 Runner
+
+      # 第 2 步：算版本号 = 本次提交的短 SHA
+      - name: 计算版本号
+        id: version                            # 给这步起名，供后面引用
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        # 把 sha 写进 GITHUB_OUTPUT = 传给后续步骤
+        # （类比 Jenkinsfile 的 writeFile/readFile）
+
+      # 第 3 步：构建镜像（和你手动敲的命令一模一样）
+      - name: 构建镜像
+        run: |
+          buildah bud \
+            -t 192.168.179.10:30500/flask-app:${{ steps.version.outputs.sha }} \
+            --build-arg APP_VERSION=${{ steps.version.outputs.sha }} \
+            .
+
+      # 第 4 步：推送到私有仓库
+      - name: 推送镜像
+        run: |
+          buildah push 192.168.179.10:30500/flask-app:${{ steps.version.outputs.sha }}
+
+      # 第 5 步：部署（更新 Deployment 镜像 → 自动滚动更新）
+      - name: 部署到集群
+        run: |
+          kubectl set image deployment/flask-app \
+            flask-app=192.168.179.10:30500/flask-app:${{ steps.version.outputs.sha }} \
+            -n flask
+
+      # 第 6 步：等发布完成（探针通过才算成功）
+      - name: 等待发布
+        run: |
+          kubectl rollout status deployment/flask-app -n flask --timeout=180s
